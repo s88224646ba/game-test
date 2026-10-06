@@ -2,41 +2,44 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>深淵 - SHINEN</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Narcissus Walk</title>
   <style>
-    /* 全体レイアウトのリセットと背景色の設定 */
+    /* 画面全体のリセットと背景スタイル */
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
       user-select: none;
+      -webkit-user-select: none;
     }
     body {
-      background-color: #050508;
-      color: #e0e0e0;
-      font-family: sans-serif;
+      background-color: #0b0c10;
+      color: #c5c6c7;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       overflow: hidden;
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
     }
-    /* ゲームキャンバスの固定比率表示 */
+    /* スマホ画面比率のゲームコンテナ */
     #gameContainer {
       position: relative;
       width: 100vw;
       height: 100vh;
-      max-width: 600px;
+      max-width: 450px;
       max-height: 800px;
+      overflow: hidden;
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
     }
     canvas {
       width: 100%;
       height: 100%;
       display: block;
-      background: radial-gradient(circle at 50% 50%, #151828 0%, #05050a 100%);
+      background-color: #1f2833;
     }
-    /* スタート画面のオーバーレイUI */
+    /* スタート画面（要件：2画面構成の1つ目） */
     #startScreen {
       position: absolute;
       top: 0;
@@ -47,487 +50,498 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      background: rgba(5, 5, 10, 0.9);
+      background: radial-gradient(circle, #1f2833 0%, #0b0c10 100%);
       z-index: 10;
+      text-align: center;
+      padding: 24px;
     }
     h1 {
       font-size: 2.2rem;
-      letter-spacing: 0.3em;
-      margin-bottom: 1rem;
-      color: #b0c4de;
-      text-shadow: 0 0 10px rgba(176, 196, 222, 0.5);
+      letter-spacing: 0.2em;
+      color: #ffd700;
+      margin-bottom: 0.5rem;
+      text-shadow: 0 0 12px rgba(255, 215, 0, 0.5);
     }
-    p {
+    .subtitle {
       font-size: 0.85rem;
-      color: #8892b0;
+      letter-spacing: 0.1em;
+      color: #45a29e;
       margin-bottom: 2rem;
-      text-align: center;
-      line-height: 1.6;
-      padding: 0 20px;
+    }
+    .instructions {
+      font-size: 0.8rem;
+      line-height: 1.8;
+      color: #c5c6c7;
+      margin-bottom: 2.5rem;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 16px;
+      border-radius: 8px;
     }
     .btn {
-      padding: 12px 36px;
-      font-size: 1rem;
-      background: transparent;
-      color: #ccd6f6;
-      border: 1px solid #64ffda;
-      border-radius: 4px;
+      padding: 14px 40px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      letter-spacing: 0.15em;
+      color: #0b0c10;
+      background: #ffd700;
+      border: none;
+      border-radius: 30px;
       cursor: pointer;
-      transition: all 0.2s ease;
+      box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+      transition: transform 0.1s ease;
     }
-    .btn:hover {
-      background: rgba(100, 255, 218, 0.1);
-      box-shadow: 0 0 15px rgba(100, 255, 218, 0.3);
+    .btn:active {
+      transform: scale(0.96);
     }
   </style>
 </head>
 <body>
 
 <div id="gameContainer">
-  <!-- 描画用メインキャンバス -->
-  <canvas id="gameCanvas" width="600" height="800"></canvas>
+  <!-- メイン描画キャンバス -->
+  <canvas id="gameCanvas" width="450" height="800"></canvas>
 
-  <!-- スタート画面（画面構成要件：2画面遷移の1つ目） -->
+  <!-- スタート画面オーバーレイ -->
   <div id="startScreen">
-    <h1>深 淵</h1>
-    <p>
-      水面を覗き込め。<br>
-      底に潜むものが怪物なら討ち滅ぼせ。<br>
-      ただし、変貌した自らの顔を撃ってはならぬ。
-    </p>
-    <button class="btn" id="startBtn">覗き込む</button>
+    <h1>NARCISSUS</h1>
+    <div class="subtitle">WALK & REFLECTION</div>
+    <div class="instructions">
+      【長押し / 画面ホールド】<br>
+      手鏡で顔を見て自己愛（HP）を充填<br>
+      ※前が見えない間は「音の波紋」で危険を察知<br><br>
+      【左右キー / 左右タップ】<br>
+      障害物を回避（鏡から目を離すとHP激減）
+    </div>
+    <button class="btn" id="startBtn">START</button>
   </div>
 </div>
 
 <script>
   // ==========================================
-  // 1. 基本設定と定数の初期化
+  // 1. システム定数・変数定義
   // ==========================================
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
   const startScreen = document.getElementById('startScreen');
   const startBtn = document.getElementById('startBtn');
 
-  // ゲーム状態管理フラグ
+  // ゲーム進行ステータス
   let gameState = 'START'; // 'START' | 'PLAYING' | 'GAMEOVER'
-  let score = 0;
-  let sanity = 100; // 正気度（0でゲームオーバー）
-  let mirrorCharges = 3; // 手鏡の残り使用可能回数
+  let score = 0;           // 歩行距離（スコア）
+  let loveGauge = 100;     // 自己愛ゲージ（HP: 0でゲームオーバー）
+  let isPeekingMirror = false; // 手鏡を凝視しているかフラグ
+  let mirrorTransition = 0;    // 手鏡の表示割合（0.0: 下げている 〜 1.0: 凝視）
 
-  // プレイヤーの変異状態（自己状態：角、目の数、牙）
-  let playerFeatures = {
-    horns: 0, // 0: なし, 1: 小さい角, 2: 巨大な角
-    eyes: 2,  // 2: 通常, 3: 三つ目, 4: 四つ目
-    fangs: 0  // 0: なし, 1: 鋭い牙
-  };
+  // プレイヤー位置（3レーンシステム: -1: 左, 0: 中央, 1: 右）
+  let playerLane = 0;
+  let targetLaneX = 225;
+  let currentLaneX = 225;
 
-  // 水底に出現した顔（エンティティ）の情報
-  let currentTarget = null;
-  let isCurrentTargetSelf = false;
+  // 自動生成される障害物（通行人・三角コーン等）の配列
+  let obstacles = [];
+  let obstacleTimer = 0;
 
-  // 覗き込み操作（ドラッグ）の物理状態
-  let isDragging = false;
-  let dragStartY = 0;
-  let peepDepth = 0;    // 現在覗き込んでいる深さ（0.0 〜 1.0）
-  let peepVelocity = 0; // 覗き込む速度
+  // エコーロケーション（音響反響）波紋エフェクト配列
+  let echoRipples = [];
 
-  // 波紋エフェクト管理用配列
-  let ripples = [];
-
-  // 手鏡を見ているかどうかのフラグとタイマー
-  let isPeekingMirror = false;
-  let mirrorTimer = 0;
+  // スクロール速度
+  let baseSpeed = 4;
+  let currentSpeed = 4;
 
   // ==========================================
-  // 2. イベントリスナーと入力ハンドリング
+  // 2. 入力イベント設定
   // ==========================================
-  // ゲーム開始ボタンのクリック処理
+  // スタートボタン
   startBtn.addEventListener('click', () => {
     startScreen.style.display = 'none';
-    gameState = 'PLAYING';
     resetGame();
+    gameState = 'PLAYING';
   });
 
-  // マウス/タッチ操作：覗き込み開始
-  canvas.addEventListener('mousedown', (e) => handlePointerDown(e.clientY, e.clientX));
-  canvas.addEventListener('touchstart', (e) => {
-    if (e.touches.length > 0) handlePointerDown(e.touches[0].clientY, e.touches[0].clientX);
-  });
-
-  // マウス/タッチ操作：移動（深さの調整）
-  window.addEventListener('mousemove', (e) => handlePointerMove(e.clientY));
-  window.addEventListener('touchmove', (e) => {
-    if (e.touches.length > 0) handlePointerMove(e.touches[0].clientY);
-  });
-
-  // マウス/タッチ操作：手を離す（後退判定または殴る判定）
-  window.addEventListener('mouseup', () => handlePointerUp());
-  window.addEventListener('touchend', () => handlePointerUp());
-
-  // 覗き込み開始の座標記録
-  function handlePointerDown(clientY, clientX) {
+  // キーボード操作（PC向け）
+  window.addEventListener('keydown', (e) => {
     if (gameState !== 'PLAYING') return;
+    if (e.code === 'Space') isPeekingMirror = true;
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA') changeLane(-1);
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') changeLane(1);
+  });
 
-    const rect = canvas.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
+  window.addEventListener('keyup', (e) => {
+    if (e.code === 'Space') isPeekingMirror = false;
+  });
 
-    // 画面右下の手鏡アイコンタップ判定
-    if (x > canvas.width - 90 && y > canvas.height - 90 && mirrorCharges > 0 && !isPeekingMirror) {
-      useMirror();
-      return;
-    }
-
-    // 水面ドラッグ開始
-    isDragging = true;
-    dragStartY = clientY;
-  }
-
-  // ドラッグによる水面への接近度合い計算
-  function handlePointerMove(clientY) {
-    if (!isDragging || gameState !== 'PLAYING') return;
-    const deltaY = clientY - dragStartY;
-    const targetDepth = Math.min(Math.max(deltaY / 250, 0), 1.0);
-    
-    // 移動速度の計算（水面の乱れ・波紋の発生源）
-    peepVelocity = Math.abs(targetDepth - peepDepth);
-    peepDepth = targetDepth;
-
-    // 速度が一定以上なら波紋を生成
-    if (peepVelocity > 0.03) {
-      addRipple(canvas.width / 2, canvas.height / 2, peepVelocity * 20);
-    }
-  }
-
-  // 手を離したときの判定処理
-  function handlePointerUp() {
-    if (!isDragging || gameState !== 'PLAYING') return;
-    isDragging = false;
-
-    // 十分に深く覗き込んでいる状態でのアクション判定
-    if (peepDepth > 0.7 && currentTarget) {
-      // クリック/離した位置で攻撃実行（深淵を殴る）
-      attackTarget();
-    }
-
-    // 深さをリセット（水面から顔を引く）
-    peepDepth = 0;
-  }
-
-  // ==========================================
-  // 3. ゲームロジック・生成システム
-  // ==========================================
-  // ゲームの初期化
-  function resetGame() {
-    score = 0;
-    sanity = 100;
-    mirrorCharges = 3;
-    playerFeatures = { horns: 0, eyes: 2, fangs: 0 };
-    spawnNewTarget();
-  }
-
-  // 手鏡を使用して自らの現在の姿を確認する処理
-  function useMirror() {
-    mirrorCharges--;
-    isPeekingMirror = true;
-    mirrorTimer = 90; // 約1.5秒間表示
-  }
-
-  // 深淵の底に現れる新しい顔の自動プロシージャル生成
-  function spawnNewTarget() {
-    // 35%の確率で「自分自身の顔」が出現
-    isCurrentTargetSelf = Math.random() < 0.35;
-
-    if (isCurrentTargetSelf) {
-      // プレイヤーの現在の特徴を完全コピー
-      currentTarget = { ...playerFeatures };
-    } else {
-      // 完全に異なる、または一部が異なるモンスターの特徴を生成
-      do {
-        currentTarget = {
-          horns: Math.floor(Math.random() * 3),
-          eyes: [2, 3, 4][Math.floor(Math.random() * 3)],
-          fangs: Math.floor(Math.random() * 2)
-        };
-      } while (
-        // 偶然プレイヤーと同じ特徴になってしまった場合は再生成
-        currentTarget.horns === playerFeatures.horns &&
-        currentTarget.eyes === playerFeatures.eyes &&
-        currentTarget.fangs === playerFeatures.fangs
-      );
-    }
-  }
-
-  // 波紋エフェクトオブジェクトの追加
-  function addRipple(x, y, power) {
-    ripples.push({
-      x: x + (Math.random() - 0.5) * 40,
-      y: y + (Math.random() - 0.5) * 40,
-      radius: 10,
-      maxRadius: 180 + power * 10,
-      alpha: 0.8,
-      speed: 2 + power
-    });
-  }
-
-  // 撃退アクションの判定処理
-  function attackTarget() {
-    addRipple(canvas.width / 2, canvas.height / 2, 30);
-
-    if (isCurrentTargetSelf) {
-      // 誤って自分自身を殴ってしまった場合（精神崩壊）
-      sanity -= 35;
-      mutatePlayer(); // 罰としてさらに変異が進む
-    } else {
-      // 正しく怪物を撃破した場合
-      score += 100;
-      // 倒した達成感でわずかに正気度回復
-      sanity = Math.min(sanity + 5, 100);
-
-      // 深淵を覗いた代償として、低確率でプレイヤー自身が怪物へ侵食・変異
-      if (Math.random() < 0.4) {
-        mutatePlayer();
-      }
-    }
-
-    // 死亡判定
-    if (sanity <= 0) {
-      gameState = 'GAMEOVER';
-    } else {
-      spawnNewTarget();
-    }
-  }
-
-  // プレイヤーの顔の変異（モンスター化）処理
-  function mutatePlayer() {
-    const featureKeys = ['horns', 'eyes', 'fangs'];
-    const chosen = featureKeys[Math.floor(Math.random() * featureKeys.length)];
-
-    if (chosen === 'horns' && playerFeatures.horns < 2) playerFeatures.horns++;
-    if (chosen === 'eyes' && playerFeatures.eyes < 4) playerFeatures.eyes++;
-    if (chosen === 'fangs' && playerFeatures.fangs < 1) playerFeatures.fangs++;
-  }
-
-  // ==========================================
-  // 4. コードによるグラフィック描画処理
-  // ==========================================
-  // 顔のグラフィックをコードで動的生成して描画する関数
-  function drawFace(ctx, x, y, features, alpha, distortion) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.globalAlpha = alpha;
-
-    // 波紋による歪みエフェクトの適用
-    const jitterX = (Math.random() - 0.5) * distortion * 8;
-    const jitterY = (Math.random() - 0.5) * distortion * 8;
-    ctx.translate(jitterX, jitterY);
-
-    // 輪郭（頭部ベース）の描画
-    ctx.strokeStyle = '#88a0c0';
-    ctx.lineWidth = 3;
-    ctx.fillStyle = '#0b0f19';
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 70, 95, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    // 角（horns）のプロシージャル描画
-    if (features.horns >= 1) {
-      ctx.strokeStyle = '#c05050';
-      ctx.beginPath();
-      // 左の角
-      ctx.moveTo(-45, -70);
-      ctx.quadraticCurveTo(-70, -110 - (features.horns * 20), -35, -120 - (features.horns * 20));
-      // 右の角
-      ctx.moveTo(45, -70);
-      ctx.quadraticCurveTo(70, -110 - (features.horns * 20), 35, -120 - (features.horns * 20));
-      ctx.stroke();
-    }
-
-    // 目（eyes）の描画
-    ctx.fillStyle = '#64ffda';
-    if (features.eyes === 2) {
-      // 通常の2つの目
-      ctx.beginPath();
-      ctx.arc(-25, -15, 8, 0, Math.PI * 2);
-      ctx.arc(25, -15, 8, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (features.eyes === 3) {
-      // 三つ目
-      ctx.beginPath();
-      ctx.arc(-30, -10, 7, 0, Math.PI * 2);
-      ctx.arc(30, -10, 7, 0, Math.PI * 2);
-      ctx.arc(0, -35, 8, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (features.eyes === 4) {
-      // 四つ目
-      ctx.beginPath();
-      ctx.arc(-28, -25, 6, 0, Math.PI * 2);
-      ctx.arc(28, -25, 6, 0, Math.PI * 2);
-      ctx.arc(-25, 0, 6, 0, Math.PI * 2);
-      ctx.arc(25, 0, 6, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // 口と牙（fangs）の描画
-    ctx.strokeStyle = '#88a0c0';
-    ctx.beginPath();
-    ctx.arc(0, 35, 25, 0.2, Math.PI - 0.2);
-    ctx.stroke();
-
-    if (features.fangs === 1) {
-      ctx.fillStyle = '#e0e0e0';
-      // 上向きの牙
-      ctx.beginPath();
-      ctx.moveTo(-15, 45);
-      ctx.lineTo(-10, 30);
-      ctx.lineTo(-5, 45);
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.moveTo(5, 45);
-      ctx.lineTo(10, 30);
-      ctx.lineTo(15, 45);
-      ctx.fill();
-    }
-
-    ctx.restore();
-  }
-
-  // ==========================================
-  // 5. メインループとレンダリング
-  // ==========================================
-  function updateAndRender() {
-    // 画面クリア
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (gameState === 'PLAYING' || gameState === 'GAMEOVER') {
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-
-      // 1. 水面深奥の暗闇と顔の描画
-      if (currentTarget) {
-        // 覗き込む深さに比例して鮮明に拡大表示
-        const faceAlpha = Math.min(peepDepth * 1.2, 1.0);
-        const faceScale = 0.5 + peepDepth * 0.7;
-        const distortion = peepVelocity * 5;
-
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        ctx.scale(faceScale, faceScale);
-        ctx.translate(-centerX, -centerY);
-        drawFace(ctx, centerX, centerY, currentTarget, faceAlpha, distortion);
-        ctx.restore();
-      }
-
-      // 2. 水面の波紋エフェクトの更新と描画
-      for (let i = ripples.length - 1; i >= 0; i--) {
-        const r = ripples[i];
-        r.radius += r.speed;
-        r.alpha -= 0.015;
-
-        ctx.strokeStyle = `rgba(100, 200, 255, ${r.alpha})`;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // 寿命を迎えた波紋の削除
-        if (r.alpha <= 0 || r.radius >= r.maxRadius) {
-          ripples.splice(i, 1);
-        }
-      }
-
-      // 3. 水面の反射光と円形マスク
-      const gradient = ctx.createRadialGradient(centerX, centerY, 50, centerX, centerY, 280);
-      gradient.addColorStop(0, 'rgba(10, 15, 30, 0)');
-      gradient.addColorStop(0.8, 'rgba(5, 8, 15, 0.7)');
-      gradient.addColorStop(1, 'rgba(5, 5, 10, 1)');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // 4. 手鏡（自己確認）の描画処理
-      if (isPeekingMirror) {
-        mirrorTimer--;
-        ctx.save();
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // 鏡枠の描画
-        ctx.strokeStyle = '#ffd700';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, 130, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // 鏡に映るプレイヤー自身の顔
-        drawFace(ctx, centerX, centerY, playerFeatures, 1.0, 0);
-
-        ctx.restore();
-        if (mirrorTimer <= 0) isPeekingMirror = false;
-      }
-
-      // 5. プレイ画面UI（最小限の記号表示）
-      // 正気度（体力）バー
-      ctx.fillStyle = '#20283a';
-      ctx.fillRect(20, 20, 160, 10);
-      ctx.fillStyle = sanity > 30 ? '#64ffda' : '#ff5555';
-      ctx.fillRect(20, 20, (sanity / 100) * 160, 10);
-
-      // スコア表示
-      ctx.fillStyle = '#8892b0';
-      ctx.font = '14px sans-serif';
-      ctx.fillText(`撃退数: ${score / 100}`, 20, 50);
-
-      // 手鏡ボタン（右下）
-      ctx.strokeStyle = mirrorCharges > 0 ? '#ffd700' : '#444';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(canvas.width - 50, canvas.height - 50, 24, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.fillStyle = mirrorCharges > 0 ? '#ffd700' : '#444';
-      ctx.font = '12px sans-serif';
-      ctx.fillText(`鏡:${mirrorCharges}`, canvas.width - 62, canvas.height - 46);
-
-      // 覗き込みガイド表示
-      if (!isDragging && peepDepth === 0) {
-        ctx.fillStyle = 'rgba(136, 146, 176, 0.5)';
-        ctx.font = '12px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('↓ 水面を引いて覗き込む', centerX, canvas.height - 100);
-        ctx.textAlign = 'left';
-      }
-
-      // 6. ゲームオーバー時のオーバーレイ
-      if (gameState === 'GAMEOVER') {
-        ctx.fillStyle = 'rgba(5, 5, 10, 0.85)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#ff5555';
-        ctx.font = '24px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('深淵に呑まれた', centerX, centerY - 20);
-        ctx.fillStyle = '#ccd6f6';
-        ctx.font = '16px sans-serif';
-        ctx.fillText(`討伐数: ${score / 100}`, centerX, centerY + 20);
-        ctx.font = '12px sans-serif';
-        ctx.fillText('タップして再挑戦', centerX, centerY + 60);
-        ctx.textAlign = 'left';
-      }
-    }
-
-    requestAnimationFrame(updateAndRender);
-  }
-
-  // ゲームオーバー時のリスタートタップ
-  canvas.addEventListener('click', () => {
+  // タッチ/マウス操作（スマホ・直感操作向け）
+  // 画面長押しで手鏡凝視、左右タップでレーン移動
+  let pointerDownTime = 0;
+  canvas.addEventListener('pointerdown', (e) => {
     if (gameState === 'GAMEOVER') {
       resetGame();
       gameState = 'PLAYING';
+      return;
+    }
+    if (gameState !== 'PLAYING') return;
+
+    pointerDownTime = Date.now();
+    isPeekingMirror = true;
+
+    // 左右どちらをタップしたかでレーン移動
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    if (x < rect.width * 0.35) {
+      changeLane(-1);
+    } else if (x > rect.width * 0.65) {
+      changeLane(1);
     }
   });
 
-  // レンダリングループの開始
-  requestAnimationFrame(updateAndRender);
+  window.addEventListener('pointerup', () => {
+    isPeekingMirror = false;
+  });
+
+  function changeLane(direction) {
+    playerLane = Math.max(-1, Math.min(1, playerLane + direction));
+    targetLaneX = 225 + playerLane * 110;
+  }
+
+  // ==========================================
+  // 3. ゲームリセット・生成ロジック
+  // ==========================================
+  function resetGame() {
+    score = 0;
+    loveGauge = 100;
+    playerLane = 0;
+    currentLaneX = 225;
+    targetLaneX = 225;
+    obstacles = [];
+    echoRipples = [];
+    isPeekingMirror = false;
+    mirrorTransition = 0;
+    currentSpeed = baseSpeed;
+  }
+
+  // 障害物の自動プロシージャル生成
+  function spawnObstacle() {
+    const lanes = [-1, 0, 1];
+    const lane = lanes[Math.floor(Math.random() * lanes.length)];
+    const type = Math.random() < 0.6 ? 'PEDESTRIAN' : 'CONE'; // 通行人 or コーン
+
+    obstacles.push({
+      lane: lane,
+      x: 225 + lane * 110,
+      y: -60,
+      radius: 24,
+      type: type,
+      soundTimer: 0 // 波紋生成インターバル
+    });
+  }
+
+  // ==========================================
+  // 4. メイン更新処理（コアループ）
+  // ==========================================
+  function update() {
+    if (gameState !== 'PLAYING') return;
+
+    // 1. 手鏡のアニメーション遷移（滑らかな没頭演出）
+    if (isPeekingMirror) {
+      mirrorTransition = Math.min(1.0, mirrorTransition + 0.12);
+      // 鏡凝視中：自己愛回復 & 陶酔による加速（前借り）
+      loveGauge = Math.min(100, loveGauge + 0.35);
+      currentSpeed = baseSpeed * 1.5;
+    } else {
+      mirrorTransition = Math.max(0.0, mirrorTransition - 0.15);
+      // 前方確認中：自己愛激減 & 通常速度
+      loveGauge -= 0.6;
+      currentSpeed = baseSpeed;
+    }
+
+    // 自己愛枯渇による死
+    if (loveGauge <= 0) {
+      loveGauge = 0;
+      gameState = 'GAMEOVER';
+      return;
+    }
+
+    // スコア加算
+    score += Math.floor(currentSpeed * 0.1);
+
+    // プレイヤーの左右スムーズ移動
+    currentLaneX += (targetLaneX - currentLaneX) * 0.25;
+
+    // 2. 障害物の生成管理
+    obstacleTimer++;
+    const spawnRate = Math.max(35, 70 - Math.floor(score / 50));
+    if (obstacleTimer > spawnRate) {
+      spawnObstacle();
+      obstacleTimer = 0;
+    }
+
+    // 3. 障害物の移動とエコー（音響反響）生成
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+      const obs = obstacles[i];
+      obs.y += currentSpeed;
+
+      // エコーロケーション波紋の定期的発生
+      obs.soundTimer++;
+      if (obs.soundTimer > 25) {
+        obs.soundTimer = 0;
+        echoRipples.push({
+          x: obs.x,
+          y: obs.y,
+          radius: 10,
+          maxRadius: 80,
+          alpha: 0.8
+        });
+      }
+
+      // プレイヤーとの衝突判定（Y=650付近がプレイヤーの立ち位置）
+      const playerY = 650;
+      const distX = obs.x - currentLaneX;
+      const distY = obs.y - playerY;
+      const distance = Math.hypot(distX, distY);
+
+      if (distance < obs.radius + 20) {
+        // 激突ペナルティ：自己愛大ダメージ
+        loveGauge -= 40;
+        obstacles.splice(i, 1);
+        if (loveGauge <= 0) gameState = 'GAMEOVER';
+        continue;
+      }
+
+      // 画面外への到達で削除
+      if (obs.y > canvas.height + 60) {
+        obstacles.splice(i, 1);
+      }
+    }
+
+    // 4. エコー波紋の拡大・減衰更新
+    for (let i = echoRipples.length - 1; i >= 0; i--) {
+      const rip = echoRipples[i];
+      rip.radius += 2.5;
+      rip.alpha -= 0.025;
+      if (rip.alpha <= 0 || rip.radius >= rip.maxRadius) {
+        echoRipples.splice(i, 1);
+      }
+    }
+  }
+
+  // ==========================================
+  // 5. 描画処理（画像不使用・プロシージャル）
+  // ==========================================
+  function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // --- 1. 道路・レーンの描画 ---
+    ctx.fillStyle = '#1a1d24';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 白線（歩行速度に合わせてスクロール）
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 4;
+    ctx.setLineDash([30, 30]);
+    ctx.lineDashOffset = -score * 4;
+
+    ctx.beginPath();
+    ctx.moveTo(170, 0);
+    ctx.lineTo(170, canvas.height);
+    ctx.moveTo(280, 0);
+    ctx.lineTo(280, canvas.height);
+    ctx.stroke();
+    ctx.setLineDash([]); // リセット
+
+    // --- 2. 障害物とエコーの描画 ---
+    // 手鏡を凝視している深さに応じて前方を暗黒＆ボカしマスク
+    const roadAlpha = 1.0 - (mirrorTransition * 0.85);
+
+    ctx.save();
+    ctx.globalAlpha = roadAlpha;
+
+    obstacles.forEach(obs => {
+      if (obs.type === 'PEDESTRIAN') {
+        // 通行人（青灰色のシルエット）
+        ctx.fillStyle = '#61dafb';
+        ctx.beginPath();
+        ctx.arc(obs.x, obs.y, 16, 0, Math.PI * 2);
+        ctx.fill();
+        // 肩
+        ctx.fillStyle = '#282c34';
+        ctx.beginPath();
+        ctx.ellipse(obs.x, obs.y + 12, 22, 10, 0, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // 三角コーン（警告色オレンジ）
+        ctx.fillStyle = '#ff6b6b';
+        ctx.beginPath();
+        ctx.arc(obs.x, obs.y, 14, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
+
+    // プレイヤーの体（後頭部）
+    ctx.fillStyle = '#ffd700'; // ナルキッソスの輝く金髪
+    ctx.beginPath();
+    ctx.arc(currentLaneX, 650, 18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f5f5f5'; // 白いトガ（古代ギリシャ服）
+    ctx.beginPath();
+    ctx.ellipse(currentLaneX, 672, 24, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+
+    // --- 3. 【エコーロケーション演出】音響反響リング ---
+    // 手鏡で前が見えなくても、この反響リングだけは鏡の隙間や端に光り輝いて視認できる
+    echoRipples.forEach(rip => {
+      ctx.strokeStyle = `rgba(100, 255, 218, ${rip.alpha})`;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(rip.x, rip.y, rip.radius, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+
+    // --- 4. 【手鏡・自撮り画面演出】（UI & コアビジュアル） ---
+    drawMirrorView();
+
+    // --- 5. ステータスUI（文字最小限） ---
+    drawStatusUI();
+
+    // --- 6. ゲームオーバーオーバーレイ ---
+    if (gameState === 'GAMEOVER') {
+      ctx.fillStyle = 'rgba(11, 12, 16, 0.9)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = '#ff5555';
+      ctx.font = 'bold 26px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('LOVE WITHERED', canvas.width / 2, canvas.height / 2 - 30);
+
+      ctx.fillStyle = '#ffd700';
+      ctx.font = '20px sans-serif';
+      ctx.fillText(`DISTANCE: ${score}m`, canvas.width / 2, canvas.height / 2 + 15);
+
+      ctx.fillStyle = '#888';
+      ctx.font = '14px sans-serif';
+      ctx.fillText('TAP TO RETRY', canvas.width / 2, canvas.height / 2 + 65);
+      ctx.textAlign = 'left';
+    }
+  }
+
+  // 手鏡（およびナルキッソスの美顔）を描画する専用関数
+  function drawMirrorView() {
+    ctx.save();
+
+    // 鏡の位置とサイズの補間計算
+    // 凝視時：画面中央・超巨大 / 非凝視時：画面右下・極小
+    const mirrorSize = 70 + mirrorTransition * 180;
+    const mirrorX = canvas.width - 60 - mirrorTransition * (canvas.width / 2 - 60);
+    const mirrorY = canvas.height - 70 - mirrorTransition * (canvas.height / 2 - 70);
+
+    // 暗転シャドウ（凝視時の周囲視界遮断）
+    if (mirrorTransition > 0) {
+      ctx.fillStyle = `rgba(5, 5, 10, ${mirrorTransition * 0.75})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // 鏡の枠（黄金の手鏡）
+    ctx.strokeStyle = '#ffd700';
+    ctx.lineWidth = 6 + mirrorTransition * 6;
+    ctx.fillStyle = '#222930';
+    ctx.beginPath();
+    ctx.arc(mirrorX, mirrorY, mirrorSize, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // 鏡の中のナルキッソスの顔（プロシージャル描画）
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(mirrorX, mirrorY, mirrorSize - 4, 0, Math.PI * 2);
+    ctx.clip(); // 鏡の枠内にクリッピング
+
+    const faceScale = 0.4 + mirrorTransition * 1.1;
+    ctx.translate(mirrorX, mirrorY + 15 * mirrorTransition);
+    ctx.scale(faceScale, faceScale);
+
+    // 肌
+    ctx.fillStyle = '#ffe0bd';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 45, 60, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 金髪
+    ctx.fillStyle = '#ffd700';
+    ctx.beginPath();
+    ctx.arc(0, -35, 50, 0, Math.PI, true);
+    ctx.fill();
+
+    // 輝く瞳（手鏡を見ている時は開く）
+    ctx.fillStyle = '#45a29e';
+    ctx.beginPath();
+    ctx.arc(-16, -5, 6, 0, Math.PI * 2);
+    ctx.arc(16, -5, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 自信に満ちた微笑み
+    ctx.strokeStyle = '#d48b70';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(0, 18, 16, 0.2, Math.PI - 0.2);
+    ctx.stroke();
+
+    // 凝視中のキラキラエフェクト
+    if (mirrorTransition > 0.6) {
+      ctx.fillStyle = '#fff';
+      const sparkleTime = Date.now() * 0.005;
+      for (let s = 0; s < 3; s++) {
+        const sx = Math.sin(sparkleTime + s * 2) * 45;
+        const sy = Math.cos(sparkleTime + s * 3) * 45;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    ctx.restore(); // クリップ解除
+    ctx.restore();
+  }
+
+  // ステータスUI描画
+  function drawStatusUI() {
+    // 自己愛（HP）ゲージ
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillRect(20, 20, 180, 14);
+
+    // ゲージ色（ピンチで赤、通常はローズゴールド）
+    ctx.fillStyle = loveGauge > 30 ? '#ff7597' : '#ff3333';
+    ctx.fillRect(20, 20, (loveGauge / 100) * 180, 14);
+    ctx.strokeStyle = '#ffd700';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(20, 20, 180, 14);
+
+    // 距離（スコア）表示
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText(`${score} m`, 20, 56);
+
+    // 操作ガイド（開始直後のみ薄く表示）
+    if (score < 40 && !isPeekingMirror) {
+      ctx.fillStyle = 'rgba(255, 215, 0, 0.8)';
+      ctx.font = '13px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('HOLD TO LOOK AT MIRROR', canvas.width / 2, canvas.height - 120);
+      ctx.textAlign = 'left';
+    }
+  }
+
+  // ==========================================
+  // 6. メインアニメーションループ
+  // ==========================================
+  function gameLoop() {
+    update();
+    render();
+    requestAnimationFrame(gameLoop);
+  }
+
+  // ループ起動
+  requestAnimationFrame(gameLoop);
 </script>
 </body>
 </html>
