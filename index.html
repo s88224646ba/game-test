@@ -2,546 +2,223 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Narcissus Walk</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Greek Street View - Code Only</title>
   <style>
-    /* 画面全体のリセットと背景スタイル */
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      user-select: none;
-      -webkit-user-select: none;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      background-color: #0b0c10;
-      color: #c5c6c7;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      overflow: hidden;
+      background: #111;
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
-    }
-    /* スマホ画面比率のゲームコンテナ */
-    #gameContainer {
-      position: relative;
-      width: 100vw;
-      height: 100vh;
-      max-width: 450px;
-      max-height: 800px;
       overflow: hidden;
-      box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
     }
     canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-      background-color: #1f2833;
-    }
-    /* スタート画面（要件：2画面構成の1つ目） */
-    #startScreen {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      background: radial-gradient(circle, #1f2833 0%, #0b0c10 100%);
-      z-index: 10;
-      text-align: center;
-      padding: 24px;
-    }
-    h1 {
-      font-size: 2.2rem;
-      letter-spacing: 0.2em;
-      color: #ffd700;
-      margin-bottom: 0.5rem;
-      text-shadow: 0 0 12px rgba(255, 215, 0, 0.5);
-    }
-    .subtitle {
-      font-size: 0.85rem;
-      letter-spacing: 0.1em;
-      color: #45a29e;
-      margin-bottom: 2rem;
-    }
-    .instructions {
-      font-size: 0.8rem;
-      line-height: 1.8;
-      color: #c5c6c7;
-      margin-bottom: 2.5rem;
-      background: rgba(255, 255, 255, 0.05);
-      padding: 16px;
-      border-radius: 8px;
-    }
-    .btn {
-      padding: 14px 40px;
-      font-size: 1.1rem;
-      font-weight: bold;
-      letter-spacing: 0.15em;
-      color: #0b0c10;
-      background: #ffd700;
-      border: none;
-      border-radius: 30px;
-      cursor: pointer;
-      box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
-      transition: transform 0.1s ease;
-    }
-    .btn:active {
-      transform: scale(0.96);
+      box-shadow: 0 0 20px rgba(0,0,0,0.8);
+      max-width: 100vw;
+      max-height: 100vh;
+      aspect-ratio: 9 / 16;
     }
   </style>
 </head>
 <body>
 
-<div id="gameContainer">
-  <!-- メイン描画キャンバス -->
-  <canvas id="gameCanvas" width="450" height="800"></canvas>
-
-  <!-- スタート画面オーバーレイ -->
-  <div id="startScreen">
-    <h1>NARCISSUS</h1>
-    <div class="subtitle">WALK & REFLECTION</div>
-    <div class="instructions">
-      【長押し / 画面ホールド】<br>
-      手鏡で顔を見て自己愛（HP）を充填<br>
-      ※前が見えない間は「音の波紋」で危険を察知<br><br>
-      【左右キー / 左右タップ】<br>
-      障害物を回避（鏡から目を離すとHP激減）
-    </div>
-    <button class="btn" id="startBtn">START</button>
-  </div>
-</div>
+<canvas id="streetCanvas" width="540" height="960"></canvas>
 
 <script>
-  // ==========================================
-  // 1. システム定数・変数定義
-  // ==========================================
-  const canvas = document.getElementById('gameCanvas');
+  // =================================================================
+  // 画像ファイルを一切使わず、数学・幾何学描画でギリシャの街並みを構築
+  // =================================================================
+  const canvas = document.getElementById('streetCanvas');
   const ctx = canvas.getContext('2d');
-  const startScreen = document.getElementById('startScreen');
-  const startBtn = document.getElementById('startBtn');
 
-  // ゲーム進行ステータス
-  let gameState = 'START'; // 'START' | 'PLAYING' | 'GAMEOVER'
-  let score = 0;           // 歩行距離（スコア）
-  let loveGauge = 100;     // 自己愛ゲージ（HP: 0でゲームオーバー）
-  let isPeekingMirror = false; // 手鏡を凝視しているかフラグ
-  let mirrorTransition = 0;    // 手鏡の表示割合（0.0: 下げている 〜 1.0: 凝視）
+  // 画面の消失点（奥のパルテノン神殿の足元付近）
+  const vp = { x: canvas.width / 2, y: canvas.height * 0.42 };
 
-  // プレイヤー位置（3レーンシステム: -1: 左, 0: 中央, 1: 右）
-  let playerLane = 0;
-  let targetLaneX = 225;
-  let currentLaneX = 225;
-
-  // 自動生成される障害物（通行人・三角コーン等）の配列
-  let obstacles = [];
-  let obstacleTimer = 0;
-
-  // エコーロケーション（音響反響）波紋エフェクト配列
-  let echoRipples = [];
-
-  // スクロール速度
-  let baseSpeed = 4;
-  let currentSpeed = 4;
-
-  // ==========================================
-  // 2. 入力イベント設定
-  // ==========================================
-  // スタートボタン
-  startBtn.addEventListener('click', () => {
-    startScreen.style.display = 'none';
-    resetGame();
-    gameState = 'PLAYING';
-  });
-
-  // キーボード操作（PC向け）
-  window.addEventListener('keydown', (e) => {
-    if (gameState !== 'PLAYING') return;
-    if (e.code === 'Space') isPeekingMirror = true;
-    if (e.code === 'ArrowLeft' || e.code === 'KeyA') changeLane(-1);
-    if (e.code === 'ArrowRight' || e.code === 'KeyD') changeLane(1);
-  });
-
-  window.addEventListener('keyup', (e) => {
-    if (e.code === 'Space') isPeekingMirror = false;
-  });
-
-  // タッチ/マウス操作（スマホ・直感操作向け）
-  // 画面長押しで手鏡凝視、左右タップでレーン移動
-  let pointerDownTime = 0;
-  canvas.addEventListener('pointerdown', (e) => {
-    if (gameState === 'GAMEOVER') {
-      resetGame();
-      gameState = 'PLAYING';
-      return;
-    }
-    if (gameState !== 'PLAYING') return;
-
-    pointerDownTime = Date.now();
-    isPeekingMirror = true;
-
-    // 左右どちらをタップしたかでレーン移動
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    if (x < rect.width * 0.35) {
-      changeLane(-1);
-    } else if (x > rect.width * 0.65) {
-      changeLane(1);
-    }
-  });
-
-  window.addEventListener('pointerup', () => {
-    isPeekingMirror = false;
-  });
-
-  function changeLane(direction) {
-    playerLane = Math.max(-1, Math.min(1, playerLane + direction));
-    targetLaneX = 225 + playerLane * 110;
-  }
-
-  // ==========================================
-  // 3. ゲームリセット・生成ロジック
-  // ==========================================
-  function resetGame() {
-    score = 0;
-    loveGauge = 100;
-    playerLane = 0;
-    currentLaneX = 225;
-    targetLaneX = 225;
-    obstacles = [];
-    echoRipples = [];
-    isPeekingMirror = false;
-    mirrorTransition = 0;
-    currentSpeed = baseSpeed;
-  }
-
-  // 障害物の自動プロシージャル生成
-  function spawnObstacle() {
-    const lanes = [-1, 0, 1];
-    const lane = lanes[Math.floor(Math.random() * lanes.length)];
-    const type = Math.random() < 0.6 ? 'PEDESTRIAN' : 'CONE'; // 通行人 or コーン
-
-    obstacles.push({
-      lane: lane,
-      x: 225 + lane * 110,
-      y: -60,
-      radius: 24,
-      type: type,
-      soundTimer: 0 // 波紋生成インターバル
-    });
-  }
-
-  // ==========================================
-  // 4. メイン更新処理（コアループ）
-  // ==========================================
-  function update() {
-    if (gameState !== 'PLAYING') return;
-
-    // 1. 手鏡のアニメーション遷移（滑らかな没頭演出）
-    if (isPeekingMirror) {
-      mirrorTransition = Math.min(1.0, mirrorTransition + 0.12);
-      // 鏡凝視中：自己愛回復 & 陶酔による加速（前借り）
-      loveGauge = Math.min(100, loveGauge + 0.35);
-      currentSpeed = baseSpeed * 1.5;
-    } else {
-      mirrorTransition = Math.max(0.0, mirrorTransition - 0.15);
-      // 前方確認中：自己愛激減 & 通常速度
-      loveGauge -= 0.6;
-      currentSpeed = baseSpeed;
-    }
-
-    // 自己愛枯渇による死
-    if (loveGauge <= 0) {
-      loveGauge = 0;
-      gameState = 'GAMEOVER';
-      return;
-    }
-
-    // スコア加算
-    score += Math.floor(currentSpeed * 0.1);
-
-    // プレイヤーの左右スムーズ移動
-    currentLaneX += (targetLaneX - currentLaneX) * 0.25;
-
-    // 2. 障害物の生成管理
-    obstacleTimer++;
-    const spawnRate = Math.max(35, 70 - Math.floor(score / 50));
-    if (obstacleTimer > spawnRate) {
-      spawnObstacle();
-      obstacleTimer = 0;
-    }
-
-    // 3. 障害物の移動とエコー（音響反響）生成
-    for (let i = obstacles.length - 1; i >= 0; i--) {
-      const obs = obstacles[i];
-      obs.y += currentSpeed;
-
-      // エコーロケーション波紋の定期的発生
-      obs.soundTimer++;
-      if (obs.soundTimer > 25) {
-        obs.soundTimer = 0;
-        echoRipples.push({
-          x: obs.x,
-          y: obs.y,
-          radius: 10,
-          maxRadius: 80,
-          alpha: 0.8
-        });
-      }
-
-      // プレイヤーとの衝突判定（Y=650付近がプレイヤーの立ち位置）
-      const playerY = 650;
-      const distX = obs.x - currentLaneX;
-      const distY = obs.y - playerY;
-      const distance = Math.hypot(distX, distY);
-
-      if (distance < obs.radius + 20) {
-        // 激突ペナルティ：自己愛大ダメージ
-        loveGauge -= 40;
-        obstacles.splice(i, 1);
-        if (loveGauge <= 0) gameState = 'GAMEOVER';
-        continue;
-      }
-
-      // 画面外への到達で削除
-      if (obs.y > canvas.height + 60) {
-        obstacles.splice(i, 1);
-      }
-    }
-
-    // 4. エコー波紋の拡大・減衰更新
-    for (let i = echoRipples.length - 1; i >= 0; i--) {
-      const rip = echoRipples[i];
-      rip.radius += 2.5;
-      rip.alpha -= 0.025;
-      if (rip.alpha <= 0 || rip.radius >= rip.maxRadius) {
-        echoRipples.splice(i, 1);
-      }
-    }
-  }
-
-  // ==========================================
-  // 5. 描画処理（画像不使用・プロシージャル）
-  // ==========================================
-  function render() {
+  function drawGreekCity() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // --- 1. 道路・レーンの描画 ---
-    ctx.fillStyle = '#1a1d24';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // 1. 空と太陽光（地中海の澄んだ青空）
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, vp.y);
+    skyGrad.addColorStop(0, '#2d72d9');
+    skyGrad.addColorStop(0.6, '#64a7f5');
+    skyGrad.addColorStop(1, '#d8ecf8');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, canvas.width, vp.y);
 
-    // 白線（歩行速度に合わせてスクロール）
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.lineWidth = 4;
-    ctx.setLineDash([30, 30]);
-    ctx.lineDashOffset = -score * 4;
-
+    // 2. 遠景：アクロポリスの丘
+    ctx.fillStyle = '#b3a078';
     ctx.beginPath();
-    ctx.moveTo(170, 0);
-    ctx.lineTo(170, canvas.height);
-    ctx.moveTo(280, 0);
-    ctx.lineTo(280, canvas.height);
-    ctx.stroke();
-    ctx.setLineDash([]); // リセット
-
-    // --- 2. 障害物とエコーの描画 ---
-    // 手鏡を凝視している深さに応じて前方を暗黒＆ボカしマスク
-    const roadAlpha = 1.0 - (mirrorTransition * 0.85);
-
-    ctx.save();
-    ctx.globalAlpha = roadAlpha;
-
-    obstacles.forEach(obs => {
-      if (obs.type === 'PEDESTRIAN') {
-        // 通行人（青灰色のシルエット）
-        ctx.fillStyle = '#61dafb';
-        ctx.beginPath();
-        ctx.arc(obs.x, obs.y, 16, 0, Math.PI * 2);
-        ctx.fill();
-        // 肩
-        ctx.fillStyle = '#282c34';
-        ctx.beginPath();
-        ctx.ellipse(obs.x, obs.y + 12, 22, 10, 0, 0, Math.PI * 2);
-        ctx.fill();
-      } else {
-        // 三角コーン（警告色オレンジ）
-        ctx.fillStyle = '#ff6b6b';
-        ctx.beginPath();
-        ctx.arc(obs.x, obs.y, 14, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    });
-
-    // プレイヤーの体（後頭部）
-    ctx.fillStyle = '#ffd700'; // ナルキッソスの輝く金髪
-    ctx.beginPath();
-    ctx.arc(currentLaneX, 650, 18, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#f5f5f5'; // 白いトガ（古代ギリシャ服）
-    ctx.beginPath();
-    ctx.ellipse(currentLaneX, 672, 24, 12, 0, 0, Math.PI * 2);
+    ctx.moveTo(canvas.width * 0.2, vp.y);
+    ctx.quadraticCurveTo(canvas.width * 0.5, vp.y - 70, canvas.width * 0.8, vp.y);
     ctx.fill();
 
-    ctx.restore();
+    // 丘の陰影
+    ctx.fillStyle = '#9e8963';
+    ctx.beginPath();
+    ctx.moveTo(canvas.width * 0.45, vp.y - 65);
+    ctx.lineTo(canvas.width * 0.8, vp.y);
+    ctx.lineTo(canvas.width * 0.5, vp.y);
+    ctx.fill();
 
-    // --- 3. 【エコーロケーション演出】音響反響リング ---
-    // 手鏡で前が見えなくても、この反響リングだけは鏡の隙間や端に光り輝いて視認できる
-    echoRipples.forEach(rip => {
-      ctx.strokeStyle = `rgba(100, 255, 218, ${rip.alpha})`;
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.arc(rip.x, rip.y, rip.radius, 0, Math.PI * 2);
-      ctx.stroke();
-    });
+    // 3. 丘の頂上に建つパルテノン神殿（シルエット）
+    drawParthenon(vp.x, vp.y - 65, 70, 22);
 
-    // --- 4. 【手鏡・自撮り画面演出】（UI & コアビジュアル） ---
-    drawMirrorView();
+    // 4. 中央の石畳の街道（透視投影）
+    drawCobblestoneRoad();
 
-    // --- 5. ステータスUI（文字最小限） ---
-    drawStatusUI();
-
-    // --- 6. ゲームオーバーオーバーレイ ---
-    if (gameState === 'GAMEOVER') {
-      ctx.fillStyle = 'rgba(11, 12, 16, 0.9)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      ctx.fillStyle = '#ff5555';
-      ctx.font = 'bold 26px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('LOVE WITHERED', canvas.width / 2, canvas.height / 2 - 30);
-
-      ctx.fillStyle = '#ffd700';
-      ctx.font = '20px sans-serif';
-      ctx.fillText(`DISTANCE: ${score}m`, canvas.width / 2, canvas.height / 2 + 15);
-
-      ctx.fillStyle = '#888';
-      ctx.font = '14px sans-serif';
-      ctx.fillText('TAP TO RETRY', canvas.width / 2, canvas.height / 2 + 65);
-      ctx.textAlign = 'left';
-    }
+    // 5. 街道両脇の街並み（白壁・オレンジ屋根・オーニング）
+    drawBuildings();
   }
 
-  // 手鏡（およびナルキッソスの美顔）を描画する専用関数
-  function drawMirrorView() {
+  // 遠景のパルテノン神殿描画
+  function drawParthenon(x, y, width, height) {
     ctx.save();
+    ctx.translate(x - width / 2, y);
 
-    // 鏡の位置とサイズの補間計算
-    // 凝視時：画面中央・超巨大 / 非凝視時：画面右下・極小
-    const mirrorSize = 70 + mirrorTransition * 180;
-    const mirrorX = canvas.width - 60 - mirrorTransition * (canvas.width / 2 - 60);
-    const mirrorY = canvas.height - 70 - mirrorTransition * (canvas.height / 2 - 70);
+    // 基壇
+    ctx.fillStyle = '#dfd6c3';
+    ctx.fillRect(0, height - 4, width, 4);
 
-    // 暗転シャドウ（凝視時の周囲視界遮断）
-    if (mirrorTransition > 0) {
-      ctx.fillStyle = `rgba(5, 5, 10, ${mirrorTransition * 0.75})`;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // 屋根（三角破風）
+    ctx.fillStyle = '#f0ebe1';
+    ctx.beginPath();
+    ctx.moveTo(0, 5);
+    ctx.lineTo(width / 2, 0);
+    ctx.lineTo(width, 5);
+    ctx.fill();
+
+    // 等間隔の柱
+    const cols = 8;
+    const colWidth = 2.5;
+    ctx.fillStyle = '#f7f4ed';
+    for (let i = 0; i < cols; i++) {
+      const cx = (width / (cols - 1)) * i - (colWidth / 2);
+      ctx.fillRect(cx, 5, colWidth, height - 9);
     }
 
-    // 鏡の枠（黄金の手鏡）
-    ctx.strokeStyle = '#ffd700';
-    ctx.lineWidth = 6 + mirrorTransition * 6;
-    ctx.fillStyle = '#222930';
-    ctx.beginPath();
-    ctx.arc(mirrorX, mirrorY, mirrorSize, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    // 鏡の中のナルキッソスの顔（プロシージャル描画）
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(mirrorX, mirrorY, mirrorSize - 4, 0, Math.PI * 2);
-    ctx.clip(); // 鏡の枠内にクリッピング
-
-    const faceScale = 0.4 + mirrorTransition * 1.1;
-    ctx.translate(mirrorX, mirrorY + 15 * mirrorTransition);
-    ctx.scale(faceScale, faceScale);
-
-    // 肌
-    ctx.fillStyle = '#ffe0bd';
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 45, 60, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 金髪
-    ctx.fillStyle = '#ffd700';
-    ctx.beginPath();
-    ctx.arc(0, -35, 50, 0, Math.PI, true);
-    ctx.fill();
-
-    // 輝く瞳（手鏡を見ている時は開く）
-    ctx.fillStyle = '#45a29e';
-    ctx.beginPath();
-    ctx.arc(-16, -5, 6, 0, Math.PI * 2);
-    ctx.arc(16, -5, 6, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 自信に満ちた微笑み
-    ctx.strokeStyle = '#d48b70';
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.arc(0, 18, 16, 0.2, Math.PI - 0.2);
-    ctx.stroke();
-
-    // 凝視中のキラキラエフェクト
-    if (mirrorTransition > 0.6) {
-      ctx.fillStyle = '#fff';
-      const sparkleTime = Date.now() * 0.005;
-      for (let s = 0; s < 3; s++) {
-        const sx = Math.sin(sparkleTime + s * 2) * 45;
-        const sy = Math.cos(sparkleTime + s * 3) * 45;
-        ctx.beginPath();
-        ctx.arc(sx, sy, 3, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    ctx.restore(); // クリップ解除
     ctx.restore();
   }
 
-  // ステータスUI描画
-  function drawStatusUI() {
-    // 自己愛（HP）ゲージ
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-    ctx.fillRect(20, 20, 180, 14);
+  // 石畳のメインストリート
+  function drawCobblestoneRoad() {
+    const roadLeft = 0;
+    const roadRight = canvas.width;
 
-    // ゲージ色（ピンチで赤、通常はローズゴールド）
-    ctx.fillStyle = loveGauge > 30 ? '#ff7597' : '#ff3333';
-    ctx.fillRect(20, 20, (loveGauge / 100) * 180, 14);
-    ctx.strokeStyle = '#ffd700';
+    // 道路ベース（明るい砂岩色）
+    ctx.fillStyle = '#e8dec8';
+    ctx.beginPath();
+    ctx.moveTo(vp.x - 30, vp.y);
+    ctx.lineTo(vp.x + 30, vp.y);
+    ctx.lineTo(roadRight, canvas.height);
+    ctx.lineTo(roadLeft, canvas.height);
+    ctx.closePath();
+    ctx.fill();
+
+    // 石畳の横目地（手前に来るほど間隔が広がる透視分割）
+    ctx.strokeStyle = 'rgba(150, 130, 100, 0.4)';
     ctx.lineWidth = 1.5;
-    ctx.strokeRect(20, 20, 180, 14);
+    for (let i = 1; i <= 25; i++) {
+      const t = Math.pow(i / 25, 2.2); // 非線形パース補間
+      const curY = vp.y + (canvas.height - vp.y) * t;
+      const lx = vp.x + (roadLeft - vp.x) * t;
+      const rx = vp.x + (roadRight - vp.x) * t;
 
-    // 距離（スコア）表示
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 16px sans-serif';
-    ctx.fillText(`${score} m`, 20, 56);
-
-    // 操作ガイド（開始直後のみ薄く表示）
-    if (score < 40 && !isPeekingMirror) {
-      ctx.fillStyle = 'rgba(255, 215, 0, 0.8)';
-      ctx.font = '13px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('HOLD TO LOOK AT MIRROR', canvas.width / 2, canvas.height - 120);
-      ctx.textAlign = 'left';
+      ctx.beginPath();
+      ctx.moveTo(lx, curY);
+      ctx.lineTo(rx, curY);
+      ctx.stroke();
     }
   }
 
-  // ==========================================
-  // 6. メインアニメーションループ
-  // ==========================================
-  function gameLoop() {
-    update();
-    render();
-    requestAnimationFrame(gameLoop);
+  // 左右に立ち並ぶ古代ギリシャ風の建築群
+  function drawBuildings() {
+    // --- 左側の建物群（手前〜奥） ---
+    // 左・奥の建物
+    drawGreekHouse(0, vp.y - 10, 140, 180, '#f2ece1', '#d46b38', true);
+    // 左・手前の露店＆家（オーニング付き）
+    drawGreekHouse(-40, vp.y + 120, 260, 480, '#e5dccb', '#be5427', true, true);
+
+    // --- 右側の建物群（手前〜奥） ---
+    // 右・奥の建物
+    drawGreekHouse(canvas.width - 130, vp.y - 5, 130, 170, '#ece5d8', '#cf622f', false);
+    // 右・手前の列柱のある建物
+    drawGreekHouse(canvas.width - 220, vp.y + 130, 260, 470, '#f5efe6', '#be5427', false, false, true);
   }
 
-  // ループ起動
-  requestAnimationFrame(gameLoop);
+  // ギリシャ建築を描画する汎用関数
+  function drawGreekHouse(x, y, w, h, wallColor, roofColor, isLeft, hasAwning = false, hasColumns = false) {
+    ctx.save();
+
+    // 1. 白壁（石造り）
+    ctx.fillStyle = wallColor;
+    ctx.fillRect(x, y, w, h);
+
+    // 壁の陰影（立体感の付与）
+    ctx.fillStyle = isLeft ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.15)';
+    ctx.fillRect(x, y, w, h);
+
+    // 2. テラコッタ瓦の屋根（オレンジの傾斜屋根）
+    ctx.fillStyle = roofColor;
+    ctx.beginPath();
+    if (isLeft) {
+      ctx.moveTo(x - 10, y);
+      ctx.lineTo(x + w + 10, y + 20);
+      ctx.lineTo(x + w, y + 35);
+      ctx.lineTo(x - 10, y + 15);
+    } else {
+      ctx.moveTo(x - 10, y + 20);
+      ctx.lineTo(x + w + 10, y);
+      ctx.lineTo(x + w + 10, y + 15);
+      ctx.lineTo(x - 10, y + 35);
+    }
+    ctx.fill();
+
+    // 3. オーニング（青と白のストライプ日よけ幕）
+    if (hasAwning) {
+      const awY = y + h * 0.45;
+      const awH = 45;
+      const stripes = 8;
+      for (let s = 0; s < stripes; s++) {
+        ctx.fillStyle = (s % 2 === 0) ? '#2e66b8' : '#f5f5f5';
+        ctx.beginPath();
+        const sx = x + (w / stripes) * s;
+        const sw = w / stripes;
+        ctx.moveTo(sx, awY);
+        ctx.lineTo(sx + sw, awY);
+        ctx.lineTo(sx + sw + 15, awY + awH);
+        ctx.lineTo(sx + 15, awY + awH);
+        ctx.fill();
+      }
+    }
+
+    // 4. 円柱（ドリス式列柱）
+    if (hasColumns) {
+      const colY = y + h * 0.35;
+      const colH = h * 0.65;
+      const colCount = 3;
+      for (let c = 0; c < colCount; c++) {
+        const cx = x + 30 + c * 55;
+        // 柱の本体
+        const colGrad = ctx.createLinearGradient(cx, 0, cx + 18, 0);
+        colGrad.addColorStop(0, '#f9f6ee');
+        colGrad.addColorStop(0.5, '#e3ded0');
+        colGrad.addColorStop(1, '#b8b2a2');
+        ctx.fillStyle = colGrad;
+        ctx.fillRect(cx, colY, 18, colH);
+
+        // 柱頭（飾り）
+        ctx.fillStyle = '#e8e2d5';
+        ctx.fillRect(cx - 4, colY - 8, 26, 8);
+      }
+    }
+
+    ctx.restore();
+  }
+
+  // 描画実行
+  drawGreekCity();
 </script>
 </body>
 </html>
