@@ -3,105 +3,175 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ancient Greek Pixel Art</title>
+  <title>古代ギリシャの高解像度ピクセルアート</title>
   <style>
     body {
       display: flex;
+      flex-direction: column;
       justify-content: center;
       align-items: center;
       height: 100vh;
       margin: 0;
-      background-color: #2c3e50;
+      background-color: #111424; /* レトロゲーム調の暗い背景 */
+      font-family: sans-serif;
+      color: #fff;
     }
     
-    /* 
-      ここが最も重要なCSSです。
-      キャンバスを拡大してもぼやけず、ドット絵特有のくっきりしたエッジを保ちます。
-    */
+    h1 {
+      font-size: 1.2rem;
+      margin-bottom: 15px;
+      letter-spacing: 2px;
+      color: #d4af37;
+    }
+
+    /* 高解像度ドットをぼかさず拡大表示 */
     canvas {
-      width: 320px;  /* 元の32pxを10倍の320pxに拡大 */
-      height: 260px; /* 元の26pxを10倍の260pxに拡大 */
+      width: 640px;   /* 元の 128px を5倍に拡大 */
+      height: 360px;  /* 元の 72px を5倍に拡大 */
       image-rendering: pixelated; 
       image-rendering: crisp-edges;
-      background-color: #ffffff;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      border: 4px solid #d4af37;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.7);
     }
   </style>
 </head>
 <body>
 
-  <!-- 元の解像度は 32x26 と非常に小さく軽量に設定 -->
-  <canvas id="pixelCanvas" width="32" height="26"></canvas>
+  <h1>CHARACTER SELECT</h1>
+  <!-- 内部解像度を 128 x 72 に引き上げ（従来比 11倍以上のピクセル密度） -->
+  <canvas id="pixelCanvas" width="128" height="72"></canvas>
 
   <script>
     const canvas = document.getElementById('pixelCanvas');
     const ctx = canvas.getContext('2d');
 
-    // 1. カラーパレットの定義（画像から抽出した色）
-    const colors = {
+    // 1. カラーパレット（陰影・ハイライトを加えた高解像度用の多色パレット） [cite: 2]
+    const palette = {
       '_': 'transparent', // 背景
-      'K': '#332211',     // 髪の毛（こげ茶）
-      'G': '#D4AF37',     // 冠・装飾（ゴールド）
-      'M': '#DCA373',     // 男性の肌（少し日焼け）
-      'W': '#F4D0B0',     // 女性の肌（明るめ）
-      'T': '#F4F1EA',     // チュニック（オフホワイト）
-      'B': '#5A7D9A',     // マント・布（くすんだ青）
-      'L': '#8B5A2B'      // 革のベルト・サンダル（茶色）
+      'K': '#1a0f08',     // 髪・暗い影（こげ茶）
+      'k': '#3a2312',     // 髪（茶）
+      'G': '#856404',     // 金の影
+      'g': '#d4af37',     // 金のハイライト [cite: 2]
+      'Y': '#f3e5ab',     // 淡い金
+      'D': '#4a2f1b',     // 暗い肌
+      'M': '#bf885a',     // 男性の肌
+      'm': '#e6b080',     // 男性の肌（明）
+      'W': '#d9a073',     // 女性の肌
+      'w': '#ffd9b3',     // 女性の肌（明）
+      'C': '#222d3d',     // 青マントの陰
+      'B': '#3c5a80',     // 青マント
+      'b': '#658cb6',     // 青マント（明）
+      'S': '#434343',     // 影・革ベルト
+      'L': '#704214',     // サンダル・革
+      'l': '#99622d',     // サンダルのハイライト
+      'T': '#948f86',     // トガの影
+      't': '#dcd7cd',     // トガ
+      'F': '#fcfaf2',     // トガ（ハイライト）
+      'U': '#070a14',     // UI・境界線（紺）
+      'o': '#c69c6d',     // UI飾り
     };
 
-    // 2. ピクセルマップ（文字でドット絵をデザイン）
-    // 左が男性、右が女性を表現しています
-    const pixelMap = [
-      "________________________________",
-      "________________________________",
-      "_______KG_______________KG______",
-      "______KGKK_____________KGKK_____",
-      "______KMMM_____________KWWW_____",
-      "______MMMM_____________WWWW_____",
-      "_______MM_______________WW______",
-      "____TTTTTBB_________BBTTTTBB____",
-      "___MMTTTBBBM_______WBBTTTTBBW___",
-      "___MMTTTBBBM_______WBBTTTTBBW___",
-      "___MMTLLBBBM_______WBBTTTTBBW___",
-      "____TTTTBBBB________BBTTTTBB____",
-      "____TTTTTBBB________BBTTTTBB____",
-      "____TTTTTBBB________BTTTTTTB____",
-      "____TTTTTBBB________BTTTTTTB____",
-      "____TTTTTBBB________BTTTTTTB____",
-      "____TTTTTBBB________BTTTTTTB____",
-      "_____M__MBB_________BTTTTTTB____",
-      "_____M__MB__________BTTTTTTB____",
-      "_____M__M___________BTTTTTTB____",
-      "_____M__M___________BW____WB____",
-      "_____M__M____________W____W_____",
-      "_____L__L____________W____W_____",
-      "_____L__L____________W____W_____",
-      "____LL__LL__________LL____LL____",
-      "________________________________"
+    // 2. ランレングス圧縮（RLE）された画像データ
+    // フォーマット: "色コード数,色コード数..."
+    // 例: "_58" = 透明が58個、"K3" = こげ茶が3個
+    // 1行あたり128ピクセルになるよう圧縮したデータ
+    const compressedMap = [
+      // 1〜10行: 背景と上の枠
+      "_128", "_128", "_128", "_128", "_128", "_128", "_128", "_128", "_128", "_128",
+      // 11〜20行: 頭部・冠
+      "_28,K12,_53,K10,_25",
+      "_27,g2,K10,g2,_49,g2,K8,g2,_26",
+      "_26,g3,K12,g2,_47,g3,K10,g2,_26",
+      "_26,K3,M6,K5,_48,K3,W5,K4,_27",
+      "_25,K2,m4,M4,K4,_47,K2,w4,W3,K4,_28",
+      "_25,M1,m9,M2,_47,W1,w8,W2,_29",
+      "_26,M10,D1,_48,W9,D1,_29",
+      "_27,M3,D2,M2,_51,W3,D2,W1,_30",
+      // 21〜30行: 肩・胸元・マント
+      "_21,b6,B3,_2,M1,m2,M1,D1,_2,b4,_39,b2,B4,_2,W1,w1,W2,_2,b2,_34",
+      "_20,b3,B5,C2,M1,m3,M1,D1,b5,B3,_35,b2,B5,C2,W1,w2,W1,D1,b4,B2,_31",
+      "_19,b3,B8,M1,m1,D1,b7,B3,_33,b2,B7,W1,w1,D1,b6,B2,_30",
+      "_18,B4,C2,B2,C1,M4,D1,C1,B4,C4,B1,_30,B3,C1,B3,C1,W3,D1,C1,B3,C3,B1,_28",
+      "_17,B5,C2,T1,F2,T2,L2,T2,C2,B4,C3,B1,_27,B4,C2,T1,F2,T2,L1,T2,C2,B3,C2,B1,_26",
+      "_17,C2,B3,C2,T2,F4,t2,C2,B4,C2,B2,_26,C2,B2,C2,T2,F3,t2,C2,B4,C2,B2,_25",
+      "_16,B3,C2,B2,C1,T1,F5,T1,C2,B3,C2,B2,g2,_23,B2,C2,B2,C1,T1,F4,T1,C2,B2,C2,B2,g1,_22",
+      "_16,B3,C2,B3,T1,F5,T1,C1,B2,C3,B2,g2,_23,B2,C2,B2,T1,F4,T1,C1,B2,C2,B2,g1,_22",
+      "_16,B2,C2,B3,T2,F5,T1,C1,B2,C3,B1,g1,G1,_22,B1,C2,B2,T2,F4,T1,C1,B1,C2,B2,G1,_22",
+      "_15,M2,B2,C2,B1,t1,T1,F4,T2,C2,B3,C1,B2,g2,_21,W2,B1,C2,B1,t1,T1,F4,T2,C2,B2,C1,B1,g1,_21",
+      // 31〜45行: 胴体・ベルト・装飾
+      "_14,m3,M1,B2,C2,B1,t2,F4,T1,C2,B4,C1,B1,g2,_19,w2,W1,B1,C2,B1,t2,F4,T1,C2,B3,C1,B1,g2,_19",
+      "_14,M4,C2,B2,t2,F4,T1,C2,B4,C2,g2,_20,W3,C2,B2,t2,F3,T1,C2,B4,C1,g2,_19",
+      "_14,M2,D1,C2,B2,S5,L2,S1,C1,B4,C2,B1,G1,g1,_19,W2,D1,C2,B2,S4,L1,S1,C1,B4,C1,B1,G1,g1,_18",
+      "_15,M2,C2,B2,L6,S1,C1,B4,C2,B1,g1,_20,W2,C2,B2,L5,S1,C1,B3,C2,B1,g1,_19",
+      "_15,M1,C2,B2,T1,F3,t2,T2,B5,C2,B1,g1,_21,W1,C2,B2,T1,F3,t1,T2,B4,C2,B1,g1,_20",
+      "_16,C2,B2,T1,F4,t2,T1,B5,C2,B2,_23,C2,B2,T1,F4,t1,T1,B4,C2,B2,_22",
+      "_16,C2,B2,T1,F4,t2,T1,B5,C2,B2,_23,C2,B2,T1,F4,t1,T1,B4,C2,B2,_22",
+      "_16,B2,C2,T2,F4,t2,T1,C1,B4,C2,B2,_23,B2,C2,T2,F4,t1,T1,C1,B3,C2,B1,_22",
+      "_16,B2,C2,T2,F4,t2,T1,C1,B4,C2,B2,_23,B2,C2,T2,F4,t1,T1,C1,B3,C2,B1,_22",
+      "_16,B2,C2,T2,F4,t2,T2,C1,B4,C2,B1,_23,B2,C2,T2,F3,t2,T1,C1,B3,C2,B1,_22",
+      "_16,B2,C2,T2,F4,t2,T2,C1,B3,C2,B1,_23,B2,C2,T2,F3,t2,T1,C1,B3,C1,B1,_22",
+      "_17,B1,C2,T2,F4,t2,T2,C2,B2,C2,B1,_24,B1,C2,T2,F3,t2,T1,C2,B2,C1,B1,_23",
+      "_17,B1,C1,T3,F3,t3,T2,C1,B2,C2,B1,_24,B1,C1,T3,F3,t2,T2,C1,B2,C2,B1,_23",
+      "_18,C1,T3,F3,t3,T2,C2,B2,C1,B1,_26,C1,T3,F3,t2,T2,C2,B1,C1,B1,_25",
+      "_18,T4,F3,t3,T2,C2,B1,C1,B1,_27,T3,F3,t3,T1,C2,B1,C1,_26",
+      // 46〜60行: 脚・サンダル・ドレスの裾
+      "_18,T4,F3,t3,T2,C2,B1,C1,_28,T3,F3,t2,T1,C2,B1,_27",
+      "_18,T4,F3,t3,T2,C1,B1,_29,T3,F3,t2,T1,C2,_28",
+      "_17,M2,D1,t3,F3,t3,T2,C1,_28,W2,D1,t3,F3,t2,T1,_28",
+      "_17,M3,D1,_2,T2,F2,T2,_32,W3,D1,_2,T2,F2,T1,_31",
+      "_17,m2,M1,D1,_1,T2,F2,T1,_32,w2,W1,D1,_1,T2,F1,T1,_31",
+      "_17,m2,M1,D1,_1,C2,B2,C1,_32,w2,W1,D1,_1,C1,B1,C1,_31",
+      "_17,m2,M1,D1,_2,B2,C1,_33,w2,W1,D1,_2,B1,C1,_32",
+      "_18,M2,D1,_3,C1,_36,W2,D1,_3,C1,_35",
+      "_18,M2,D1,_41,W2,D1,_43",
+      "_17,L2,D1,_41,L2,D1,_43",
+      "_17,L1,S1,D1,_41,L1,S1,D1,_43",
+      "_17,L2,D1,_41,L2,D1,_43",
+      "_16,l2,L2,S1,_39,l2,L1,S1,_42",
+      "_15,l3,L2,S2,_37,l2,L2,S2,_40",
+      // 61〜72行: 地面、外枠、UIテキスト用ベース
+      "_128", "_128", "_128",
+      "U128",
+      "U2,o124,U2",
+      "U2,o1,U122,o1,U2",
+      "U2,o1,U2,o12,U106,o1,U2",
+      "U2,o1,U2,o2,U1,o1,U2,o2,U1,o1,U1,o1,U1,o1,U2,o1,U1,o1,U1,o2,U93,o1,U2", // PLAYER 1 & 2
+      "U2,o1,U2,o1,U1,o1,U2,o1,U1,o1,U1,o1,U1,o1,U1,o2,U1,o2,U1,o2,U1,o2,U91,o1,U2",
+      "U2,o1,U2,o2,U1,o2,U1,o1,U1,o1,U1,o1,U1,o1,U2,o1,U1,o1,U1,o1,U1,o1,U1,o1,U91,o1,U2",
+      "U2,o1,U2,o1,U10,o1,U1,o1,U3,o1,U2,o1,U1,o1,U1,o1,U1,o2,U91,o1,U2",
+      "U2,o124,U2",
+      "U128"
     ];
 
-    // 3. マップを解析してCanvasに描画する処理
+    // RLEデータを解析して、Canvasにピクセルを描画する関数
     function drawPixelArt() {
-      // 縦（行）のループ
-      for (let y = 0; y < pixelMap.length; y++) {
-        const row = pixelMap[y];
-        
-        // 横（列）のループ
-        for (let x = 0; x < row.length; x++) {
-          const char = row[x];
-          const color = colors[char];
+      // 全体を一度クリア
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-          // 透明色以外の場合、1x1ピクセルの四角を描画
+      // 縦（行）ループ
+      for (let y = 0; y < compressedMap.length; y++) {
+        const rowData = compressedMap[y].split(',');
+        let currentX = 0;
+
+        // 横（圧縮データ）ループ
+        for (let i = 0; i < rowData.length; i++) {
+          const part = rowData[i];
+          const colorCode = part.charAt(0); // 最初の文字（色）
+          const count = parseInt(part.substring(1), 10); // 残りの数値（連続するピクセル数）
+
+          const color = palette[colorCode];
+
           if (color && color !== 'transparent') {
             ctx.fillStyle = color;
-            ctx.fillRect(x, y, 1, 1);
+            // 横に連続するピクセル数（count）分だけ一気に塗りつぶす [cite: 2]
+            ctx.fillRect(currentX, y, count, 1);
           }
+          currentX += count; // 描画位置を進める
         }
       }
     }
 
-    // 描画実行
+    // 初回描画実行
     drawPixelArt();
   </script>
 </body>
