@@ -2,674 +2,107 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Narcissus Walk - 3D</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ancient Greek Pixel Art</title>
   <style>
-    /* 全体リセットと背景設定 */
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      user-select: none;
-      -webkit-user-select: none;
-    }
     body {
-      background-color: #0b0c10;
-      color: #c5c6c7;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      overflow: hidden;
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
-      touch-action: none; /* デフォルトのタッチアクションを無効化 */
-    }
-    /* スマホ画面比率のゲームコンテナ */
-    #gameContainer {
-      position: relative;
-      width: 100vw;
-      height: 100vh;
-      max-width: 450px;
-      max-height: 800px;
-      overflow: hidden;
-      background-color: #1f2833;
-      box-shadow: 0 0 30px rgba(0,0,0,0.8);
-      display: flex;
-      flex-direction: column;
-    }
-    /* ゲーム画面（キャンバス）領域 */
-    #canvasArea {
-      flex: 1; /* 残りの高さをすべて占有 */
-      position: relative;
-      overflow: hidden;
-    }
-    canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
+      margin: 0;
+      background-color: #2c3e50;
     }
     
-    /* === コントローラーパネル（画面下部） === */
-    #controlPanel {
-      height: 120px; /* パネルの高さ */
-      background-color: #222;
-      border-top: 2px solid #444;
-      display: flex;
-      justify-content: space-around;
-      align-items: center;
-      padding: 10px;
-      z-index: 20;
-    }
-    .ctrl-btn {
-      flex: 1;
-      height: 80px;
-      margin: 0 5px;
-      border-radius: 10px;
-      border: none;
-      font-size: 1.2rem;
-      font-weight: bold;
-      color: #fff;
-      background: linear-gradient(145deg, #444, #222);
-      box-shadow: 4px 4px 8px #111, -4px -4px 8px #333;
-      cursor: pointer;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-    .ctrl-btn:active, .ctrl-btn.active {
-      background: #333;
-      box-shadow: inset 4px 4px 8px #111, inset -4px -4px 8px #444;
-    }
-    /* 鏡ボタンは少し目立たせる */
-    #btnMirror {
-      flex: 1.5;
-      background: linear-gradient(145deg, #ffd700, #b8860b);
-      color: #000;
-      box-shadow: 4px 4px 8px #111, -2px -2px 5px #ffeb73;
-    }
-    #btnMirror:active, #btnMirror.active {
-      background: #daa520;
-      box-shadow: inset 4px 4px 8px #8b6508, inset -2px -2px 5px #ffe066;
-    }
-
-    /* === スタート画面・ゲームオーバー画面（オーバーレイ） === */
-    #overlayScreen {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%; /* キャンバスエリアのみ覆うか全体か。ここでは全体とする */
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      background: rgba(11, 12, 16, 0.9);
-      z-index: 30;
-      text-align: center;
-    }
-    h1 {
-      font-size: 2.2rem;
-      letter-spacing: 0.1em;
-      color: #ffd700;
-      margin-bottom: 1rem;
-      text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
-    }
-    .instructions {
-      font-size: 0.9rem;
-      line-height: 1.6;
-      color: #c5c6c7;
-      margin-bottom: 2rem;
-    }
-    #startBtn {
-      padding: 12px 30px;
-      font-size: 1.1rem;
-      font-weight: bold;
-      color: #000;
-      background: #ffd700;
-      border: none;
-      border-radius: 25px;
-      cursor: pointer;
+    /* 
+      ここが最も重要なCSSです。
+      キャンバスを拡大してもぼやけず、ドット絵特有のくっきりしたエッジを保ちます。
+    */
+    canvas {
+      width: 320px;  /* 元の32pxを10倍の320pxに拡大 */
+      height: 260px; /* 元の26pxを10倍の260pxに拡大 */
+      image-rendering: pixelated; 
+      image-rendering: crisp-edges;
+      background-color: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
   </style>
 </head>
 <body>
 
-<div id="gameContainer">
-  <!-- キャンバスエリア -->
-  <div id="canvasArea">
-    <!-- キャンバスの論理サイズ。描画時にリサイズ処理を入れる -->
-    <canvas id="gameCanvas" width="400" height="600"></canvas>
-  </div>
+  <!-- 元の解像度は 32x26 と非常に小さく軽量に設定 -->
+  <canvas id="pixelCanvas" width="32" height="26"></canvas>
 
-  <!-- コントローラーパネル -->
-  <div id="controlPanel">
-    <div class="ctrl-btn" id="btnLeft">◀ 左</div>
-    <div class="ctrl-btn" id="btnMirror">鏡(長押し)</div>
-    <div class="ctrl-btn" id="btnRight">右 ▶</div>
-  </div>
+  <script>
+    const canvas = document.getElementById('pixelCanvas');
+    const ctx = canvas.getContext('2d');
 
-  <!-- スタート/リザルト画面オーバーレイ -->
-  <div id="overlayScreen">
-    <h1 id="overlayTitle">NARCISSUS 3D</h1>
-    <div class="instructions" id="overlayText">
-      【鏡】ボタン長押し：HP回復（前が見えない）<br>
-      【左右】ボタン：回避（HP激減）<br>
-      音響波紋を頼りに危険を避けろ
-    </div>
-    <button id="startBtn">START</button>
-  </div>
-</div>
+    // 1. カラーパレットの定義（画像から抽出した色）
+    const colors = {
+      '_': 'transparent', // 背景
+      'K': '#332211',     // 髪の毛（こげ茶）
+      'G': '#D4AF37',     // 冠・装飾（ゴールド）
+      'M': '#DCA373',     // 男性の肌（少し日焼け）
+      'W': '#F4D0B0',     // 女性の肌（明るめ）
+      'T': '#F4F1EA',     // チュニック（オフホワイト）
+      'B': '#5A7D9A',     // マント・布（くすんだ青）
+      'L': '#8B5A2B'      // 革のベルト・サンダル（茶色）
+    };
 
-<script>
-  // ==========================================
-  // 1. 基本設定・変数定義
-  // ==========================================
-  const canvas = document.getElementById('gameCanvas');
-  const ctx = canvas.getContext('2d');
-  const overlayScreen = document.getElementById('overlayScreen');
-  const overlayTitle = document.getElementById('overlayTitle');
-  const overlayText = document.getElementById('overlayText');
-  const startBtn = document.getElementById('startBtn');
+    // 2. ピクセルマップ（文字でドット絵をデザイン）
+    // 左が男性、右が女性を表現しています
+    const pixelMap = [
+      "________________________________",
+      "________________________________",
+      "_______KG_______________KG______",
+      "______KGKK_____________KGKK_____",
+      "______KMMM_____________KWWW_____",
+      "______MMMM_____________WWWW_____",
+      "_______MM_______________WW______",
+      "____TTTTTBB_________BBTTTTBB____",
+      "___MMTTTBBBM_______WBBTTTTBBW___",
+      "___MMTTTBBBM_______WBBTTTTBBW___",
+      "___MMTLLBBBM_______WBBTTTTBBW___",
+      "____TTTTBBBB________BBTTTTBB____",
+      "____TTTTTBBB________BBTTTTBB____",
+      "____TTTTTBBB________BTTTTTTB____",
+      "____TTTTTBBB________BTTTTTTB____",
+      "____TTTTTBBB________BTTTTTTB____",
+      "____TTTTTBBB________BTTTTTTB____",
+      "_____M__MBB_________BTTTTTTB____",
+      "_____M__MB__________BTTTTTTB____",
+      "_____M__M___________BTTTTTTB____",
+      "_____M__M___________BW____WB____",
+      "_____M__M____________W____W_____",
+      "_____L__L____________W____W_____",
+      "_____L__L____________W____W_____",
+      "____LL__LL__________LL____LL____",
+      "________________________________"
+    ];
 
-  // コントローラーボタン
-  const btnLeft = document.getElementById('btnLeft');
-  const btnMirror = document.getElementById('btnMirror');
-  const btnRight = document.getElementById('btnRight');
+    // 3. マップを解析してCanvasに描画する処理
+    function drawPixelArt() {
+      // 縦（行）のループ
+      for (let y = 0; y < pixelMap.length; y++) {
+        const row = pixelMap[y];
+        
+        // 横（列）のループ
+        for (let x = 0; x < row.length; x++) {
+          const char = row[x];
+          const color = colors[char];
 
-  // 疑似3D空間の設定
-  let vpX = canvas.width / 2; // 消失点X
-  let vpY = canvas.height * 0.3; // 消失点Y（地平線）
-  const fov = 300; // 視野角・奥行きの係数
-
-  // ゲーム状態
-  let gameState = 'START'; // START, PLAYING, GAMEOVER
-  let score = 0;
-  let loveGauge = 100;
-  
-  // プレイヤー状態
-  let playerLane = 0; // -1:左, 0:中央, 1:右
-  let isPeekingMirror = false;
-  let mirrorTransition = 0;
-
-  // 移動・スクロール管理
-  let baseSpeed = 0.05; // 疑似3D空間の進行速度（Z軸の減少速度）
-  let currentSpeed = baseSpeed;
-  let travelDistanceZ = 0; // 前進距離（壁の模様をループさせるため）
-
-  // オブジェクト管理
-  let obstacles = [];
-  let echoRipples = [];
-  let obstacleTimer = 0;
-
-  // ==========================================
-  // 2. キャンバスリサイズ処理
-  // ==========================================
-  function resizeCanvas() {
-    const area = document.getElementById('canvasArea');
-    canvas.width = area.clientWidth;
-    canvas.height = area.clientHeight;
-    vpX = canvas.width / 2;
-    vpY = canvas.height * 0.35; // 地平線の高さを調整
-  }
-  window.addEventListener('resize', resizeCanvas);
-  resizeCanvas(); // 初期化時に一度呼ぶ
-
-  // ==========================================
-  // 3. 入力制御（コントローラーパネル＆キーボード）
-  // ==========================================
-  
-  // --- 鏡ボタン（長押し制御） ---
-  function startMirror() {
-    if (gameState !== 'PLAYING') return;
-    isPeekingMirror = true;
-    btnMirror.classList.add('active');
-  }
-  function stopMirror() {
-    isPeekingMirror = false;
-    btnMirror.classList.remove('active');
-  }
-  // スマホ(Touch)とPC(Mouse)両対応
-  btnMirror.addEventListener('touchstart', (e) => { e.preventDefault(); startMirror(); });
-  btnMirror.addEventListener('touchend', (e) => { e.preventDefault(); stopMirror(); });
-  btnMirror.addEventListener('mousedown', startMirror);
-  btnMirror.addEventListener('mouseup', stopMirror);
-  btnMirror.addEventListener('mouseleave', stopMirror);
-
-  // --- 左右ボタン（タップ/クリック制御） ---
-  function moveLeft() {
-    if (gameState !== 'PLAYING') return;
-    if (playerLane > -1) playerLane--;
-  }
-  function moveRight() {
-    if (gameState !== 'PLAYING') return;
-    if (playerLane < 1) playerLane++;
-  }
-  
-  btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); moveLeft(); btnLeft.classList.add('active'); });
-  btnLeft.addEventListener('touchend', (e) => { e.preventDefault(); btnLeft.classList.remove('active'); });
-  btnLeft.addEventListener('mousedown', moveLeft);
-  
-  btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); moveRight(); btnRight.classList.add('active'); });
-  btnRight.addEventListener('touchend', (e) => { e.preventDefault(); btnRight.classList.remove('active'); });
-  btnRight.addEventListener('mousedown', moveRight);
-
-  // PCキーボードフォールバック
-  window.addEventListener('keydown', (e) => {
-    if (gameState !== 'PLAYING') return;
-    if (e.code === 'Space') startMirror();
-    if (e.code === 'ArrowLeft' || e.code === 'KeyA') moveLeft();
-    if (e.code === 'ArrowRight' || e.code === 'KeyD') moveRight();
-  });
-  window.addEventListener('keyup', (e) => {
-    if (e.code === 'Space') stopMirror();
-  });
-
-  // スタートボタン
-  startBtn.addEventListener('click', () => {
-    overlayScreen.style.display = 'none';
-    resetGame();
-    gameState = 'PLAYING';
-  });
-
-  // ==========================================
-  // 4. ゲームロジック
-  // ==========================================
-  function resetGame() {
-    score = 0;
-    loveGauge = 100;
-    playerLane = 0;
-    obstacles = [];
-    echoRipples = [];
-    isPeekingMirror = false;
-    mirrorTransition = 0;
-    travelDistanceZ = 0;
-    currentSpeed = baseSpeed;
-    obstacleTimer = 0;
-  }
-
-  // 疑似3DのZ座標から画面上のX, Y, Scaleを計算するヘルパー関数
-  // 世界座標系：X(左右), Y(上下:ここでは0を床とする), Z(奥行き: 奥が大きく、手前が0)
-  function project3D(worldX, worldY, worldZ) {
-    // ゼロ除算防止
-    const z = Math.max(0.1, worldZ); 
-    const scale = fov / z;
-    const screenX = vpX + (worldX * scale);
-    // worldYが0のとき、床の高さ（画面下部へ向かう）
-    const screenY = vpY + (fov) - (worldY * scale); // 簡易的な床投影
-    
-    // 正確な床の投影（視点の高さ=camH とする）
-    const camH = 150;
-    const sy = vpY + (camH - worldY) * scale;
-    
-    return { x: screenX, y: sy, scale: scale };
-  }
-
-  function spawnObstacle() {
-    const lanes = [-1, 0, 1];
-    const lane = lanes[Math.floor(Math.random() * lanes.length)];
-    const type = Math.random() < 0.6 ? 'PEDESTRIAN' : 'CONE';
-    
-    obstacles.push({
-      lane: lane,
-      z: 100, // 奥から出現（Z=100）
-      type: type,
-      soundTimer: 0
-    });
-  }
-
-  function update() {
-    if (gameState !== 'PLAYING') return;
-
-    // 鏡の凝視状態によるパラメーター変動
-    if (isPeekingMirror) {
-      mirrorTransition = Math.min(1.0, mirrorTransition + 0.1);
-      loveGauge = Math.min(100, loveGauge + 0.3); // 回復
-      currentSpeed = baseSpeed * 1.5; // 前借り加速
-    } else {
-      mirrorTransition = Math.max(0.0, mirrorTransition - 0.15);
-      loveGauge -= 0.5; // 減少
-      currentSpeed = baseSpeed;
-    }
-
-    if (loveGauge <= 0) {
-      gameState = 'GAMEOVER';
-      showGameOver();
-      return;
-    }
-
-    // 前進処理
-    travelDistanceZ += currentSpeed;
-    score = Math.floor(travelDistanceZ * 10);
-
-    // 障害物の生成
-    obstacleTimer++;
-    const spawnRate = Math.max(30, 80 - Math.floor(score / 100));
-    if (obstacleTimer > spawnRate) {
-      spawnObstacle();
-      obstacleTimer = 0;
-    }
-
-    // 障害物の移動・判定・波紋
-    for (let i = obstacles.length - 1; i >= 0; i--) {
-      const obs = obstacles[i];
-      obs.z -= currentSpeed * 20; // 接近速度
-
-      // 波紋の生成
-      obs.soundTimer++;
-      if (obs.soundTimer > 20) {
-        obs.soundTimer = 0;
-        // 波紋の初期位置は現在の3D投影位置
-        const proj = project3D(obs.lane * 100, 0, obs.z);
-        if(obs.z > 5) { // 手前すぎない場合のみ波紋を出す
-            echoRipples.push({
-                z: obs.z,
-                lane: obs.lane,
-                radius: 1,
-                maxRadius: 150,
-                alpha: 1.0
-            });
-        }
-      }
-
-      // プレイヤー（Z=5付近）との衝突判定
-      if (obs.z > 0 && obs.z < 10) {
-        if (obs.lane === playerLane) {
-          loveGauge -= 30; // 激突ダメージ
-          obstacles.splice(i, 1);
-          if (loveGauge <= 0) {
-            gameState = 'GAMEOVER';
-            showGameOver();
+          // 透明色以外の場合、1x1ピクセルの四角を描画
+          if (color && color !== 'transparent') {
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, 1, 1);
           }
-          continue;
         }
       }
-
-      // カメラ後方へ過ぎ去ったら削除
-      if (obs.z < 0) {
-        obstacles.splice(i, 1);
-      }
     }
 
-    // エコー波紋の更新（波紋は空間に留まらず、大きくなりながら消える）
-    for (let i = echoRipples.length - 1; i >= 0; i--) {
-      const rip = echoRipples[i];
-      rip.radius += 5;
-      rip.alpha -= 0.05;
-      if (rip.alpha <= 0) {
-        echoRipples.splice(i, 1);
-      }
-    }
-  }
-
-  function showGameOver() {
-    overlayScreen.style.display = 'flex';
-    overlayTitle.textContent = 'LOVE WITHERED';
-    overlayTitle.style.color = '#ff5555';
-    overlayText.innerHTML = `DISTANCE: ${score} m<br><br>自らの顔から目を離しすぎたか、<br>障害物に激突して心が折れました。`;
-    startBtn.textContent = 'RETRY';
-  }
-
-  // ==========================================
-  // 5. 描画処理 (疑似3D)
-  // ==========================================
-  function render() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // --- 背景（空・遠景） ---
-    ctx.fillStyle = '#0f141e';
-    ctx.fillRect(0, 0, canvas.width, vpY);
-
-    // --- 床と壁（パネル式・前進感の演出） ---
-    drawFloorAndWalls();
-
-    // 鏡凝視による視界暗転マスク
-    const roadAlpha = 1.0 - (mirrorTransition * 0.85);
-    ctx.save();
-    ctx.globalAlpha = roadAlpha;
-
-    // --- 障害物の描画 ---
-    // Z値が大きい（奥）ものから順に描画する（Zソート）
-    obstacles.sort((a, b) => b.z - a.z);
-    
-    obstacles.forEach(obs => {
-      const proj = project3D(obs.lane * 120, 0, obs.z); // X座標はレーン幅120
-      
-      if (obs.type === 'PEDESTRIAN') {
-        // 通行人（青いシルエット）
-        ctx.fillStyle = '#61dafb';
-        const w = 40 * proj.scale;
-        const h = 100 * proj.scale;
-        
-        // 足元が proj.y になるように描画
-        ctx.fillRect(proj.x - w/2, proj.y - h, w, h);
-        // 頭
-        ctx.beginPath();
-        ctx.arc(proj.x, proj.y - h - (15*proj.scale), 20*proj.scale, 0, Math.PI*2);
-        ctx.fill();
-      } else {
-        // 三角コーン
-        ctx.fillStyle = '#ff6b6b';
-        const w = 30 * proj.scale;
-        const h = 50 * proj.scale;
-        ctx.beginPath();
-        ctx.moveTo(proj.x, proj.y - h);
-        ctx.lineTo(proj.x - w/2, proj.y);
-        ctx.lineTo(proj.x + w/2, proj.y);
-        ctx.fill();
-      }
-    });
-
-    // --- プレイヤーキャラクター（手前に固定） ---
-    // Z=5付近にいるとして計算
-    const playerProj = project3D(playerLane * 120, 0, 5);
-    
-    ctx.fillStyle = '#f5f5f5'; // 白いトガ
-    ctx.beginPath();
-    // 楕円で体を表現
-    ctx.ellipse(playerProj.x, playerProj.y - 30, 40, 50, 0, 0, Math.PI*2);
-    ctx.fill();
-    ctx.fillStyle = '#ffd700'; // 金髪の後頭部
-    ctx.beginPath();
-    ctx.arc(playerProj.x, playerProj.y - 80, 25, 0, Math.PI*2);
-    ctx.fill();
-
-    ctx.restore(); // 暗転マスク解除
-
-    // --- エコーロケーション波紋（暗闇でも見える） ---
-    echoRipples.forEach(rip => {
-      // 波紋の発生源の投影座標
-      const p = project3D(rip.lane * 120, 0, rip.z);
-      // 遠近法で波紋が横長の楕円になる表現
-      ctx.strokeStyle = `rgba(100, 255, 218, ${rip.alpha})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.ellipse(p.x, p.y - 20, rip.radius, rip.radius * 0.3, 0, 0, Math.PI*2);
-      ctx.stroke();
-    });
-
-    // --- 手鏡 UI 描画 ---
-    drawMirror();
-
-    // --- ステータスUI ---
-    drawUI();
-  }
-
-  // 床のラインとパネル式の壁を描画する関数
-  function drawFloorAndWalls() {
-    ctx.fillStyle = '#1a1a24'; // ベースの床色
-    ctx.fillRect(0, vpY, canvas.width, canvas.height - vpY);
-
-    // Z軸に沿った分割（手前Z=1 〜 奥Z=100）
-    // travelDistanceZ を使ってテクスチャが手前に流れてくるように計算
-    const zSegments = [];
-    const numSegments = 15;
-    for(let i = numSegments; i > 0; i--) {
-        // 対数的にZ座標を取ると遠近感が出る
-        let z = Math.pow(i, 1.5) * 1.5; 
-        // 進行度に合わせてZをスライドさせる（ループ処理）
-        let offset = travelDistanceZ % 5;
-        z -= offset;
-        if(z > 0.1) zSegments.push(z);
-    }
-
-    // 床の水平ライン描画
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.lineWidth = 1;
-    zSegments.forEach(z => {
-      const p1 = project3D(-1000, 0, z);
-      const p2 = project3D(1000, 0, z);
-      ctx.beginPath();
-      ctx.moveTo(0, p1.y);
-      ctx.lineTo(canvas.width, p2.y);
-      ctx.stroke();
-    });
-
-    // レーンの縦ライン描画（消失点から放射状）
-    const laneWidth = 120; // 3D空間でのレーン幅
-    [-1.5, -0.5, 0.5, 1.5].forEach(lx => {
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-      ctx.lineWidth = (lx === -0.5 || lx === 0.5) ? 2 : 1; // 中央レーン境界を少し太く
-      if(lx === -1.5 || lx === 1.5) ctx.strokeStyle = 'rgba(255,0,0,0.3)'; // 路肩
-      ctx.beginPath();
-      // 奥(z=100)から手前(z=1)へ
-      const pFar = project3D(lx * laneWidth, 0, 100);
-      const pNear = project3D(lx * laneWidth, 0, 1);
-      ctx.moveTo(pFar.x, pFar.y);
-      ctx.lineTo(pNear.x, pNear.y);
-      ctx.stroke();
-    });
-
-    // --- パネル式の壁（ダンジョン風）の描画 ---
-    // 左右の壁（X = -200 と X = 200 の位置）
-    const wallX = 200;
-    const wallHeight = 150; // 空間上での壁の高さ
-    
-    // Zセグメントの配列を使って、奥から手前へ四角形（パネル）を描く
-    for(let i = 0; i < zSegments.length - 1; i++) {
-        const zFar = zSegments[i];
-        const zNear = zSegments[i+1];
-        
-        // 色を交互に変えて移動感を出す
-        // i と travelDistanceZ の繰り上がりを使って市松模様のように色を切り替える
-        const colorIndex = (i + Math.floor(travelDistanceZ / 5)) % 2;
-        const colorL = colorIndex === 0 ? '#2a2f3a' : '#3a404d';
-        const colorR = colorIndex === 0 ? '#3a404d' : '#2a2f3a';
-
-        // 左壁パネルの4点
-        const tlFar = project3D(-wallX, wallHeight, zFar);
-        const blFar = project3D(-wallX, 0, zFar);
-        const tlNear = project3D(-wallX, wallHeight, zNear);
-        const blNear = project3D(-wallX, 0, zNear);
-        
-        ctx.fillStyle = colorL;
-        ctx.beginPath();
-        ctx.moveTo(tlFar.x, tlFar.y);
-        ctx.lineTo(blFar.x, blFar.y);
-        ctx.lineTo(blNear.x, blNear.y);
-        ctx.lineTo(tlNear.x, tlNear.y);
-        ctx.fill();
-        ctx.strokeStyle = '#111';
-        ctx.stroke();
-
-        // 右壁パネルの4点
-        const trFar = project3D(wallX, wallHeight, zFar);
-        const brFar = project3D(wallX, 0, zFar);
-        const trNear = project3D(wallX, wallHeight, zNear);
-        const brNear = project3D(wallX, 0, zNear);
-        
-        ctx.fillStyle = colorR;
-        ctx.beginPath();
-        ctx.moveTo(trFar.x, trFar.y);
-        ctx.lineTo(brFar.x, brFar.y);
-        ctx.lineTo(brNear.x, brNear.y);
-        ctx.lineTo(trNear.x, trNear.y);
-        ctx.fill();
-        ctx.stroke();
-    }
-  }
-
-  function drawMirror() {
-    ctx.save();
-    // 鏡のサイズと位置の補間
-    const mirrorSize = 50 + mirrorTransition * (canvas.width * 0.4);
-    const mX = canvas.width - 60 - mirrorTransition * (canvas.width / 2 - 60);
-    const mY = canvas.height - 70 - mirrorTransition * (canvas.height / 2 - 70);
-
-    // 鏡枠
-    ctx.strokeStyle = '#ffd700';
-    ctx.lineWidth = 4 + mirrorTransition * 6;
-    ctx.fillStyle = '#222930';
-    ctx.beginPath();
-    ctx.arc(mX, mY, mirrorSize, 0, Math.PI*2);
-    ctx.fill();
-    ctx.stroke();
-
-    // 鏡内の顔
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(mX, mY, mirrorSize - 2, 0, Math.PI*2);
-    ctx.clip();
-
-    const scale = 0.3 + mirrorTransition * 0.8;
-    ctx.translate(mX, mY + 10 * mirrorTransition);
-    ctx.scale(scale, scale);
-
-    // 肌
-    ctx.fillStyle = '#ffe0bd';
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 45, 60, 0, 0, Math.PI*2);
-    ctx.fill();
-    // 金髪
-    ctx.fillStyle = '#ffd700';
-    ctx.beginPath();
-    ctx.arc(0, -35, 50, 0, Math.PI, true);
-    ctx.fill();
-    // 目
-    ctx.fillStyle = '#45a29e';
-    ctx.beginPath();
-    ctx.arc(-16, -5, 6, 0, Math.PI*2);
-    ctx.arc(16, -5, 6, 0, Math.PI*2);
-    ctx.fill();
-    // 口
-    ctx.strokeStyle = '#d48b70';
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.arc(0, 18, 16, 0.2, Math.PI-0.2);
-    ctx.stroke();
-
-    ctx.restore(); // clip解除
-    ctx.restore();
-  }
-
-  function drawUI() {
-    // ゲージ背景
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(10, 10, 150, 15);
-    // HP（自己愛）
-    ctx.fillStyle = loveGauge > 30 ? '#ff7597' : '#ff3333';
-    ctx.fillRect(10, 10, (loveGauge / 100) * 150, 15);
-    ctx.strokeStyle = '#ffd700';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(10, 10, 150, 15);
-
-    // スコア
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 16px sans-serif';
-    ctx.fillText(`${score} m`, 10, 45);
-  }
-
-  // ==========================================
-  // 6. メインループ
-  // ==========================================
-  function gameLoop() {
-    update();
-    render();
-    requestAnimationFrame(gameLoop);
-  }
-
-  // 初期ロード時
-  requestAnimationFrame(gameLoop);
-
-</script>
+    // 描画実行
+    drawPixelArt();
+  </script>
 </body>
 </html>
